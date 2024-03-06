@@ -1,2 +1,2 @@
 # PIC-MIDI
- Microchip PIC18-based MIDI Processor
+Microchip PIC18-based MIDI Processor
