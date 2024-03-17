@@ -147,7 +147,7 @@ static inline void SendOne(
 {
 // TXREG is empty and nothing pending?
 /* We'll only enable transmit interrupts if we have data pending for output */
-if (PIR1bits.TXIF == 1 && PIE1bits.TXIE == 0)
+if (PIR1bits.TXIF && !PIE1bits.TXIE)
 	TXREG = out;
 
 else
@@ -172,7 +172,7 @@ if (outBytesN > 0) {
 	
 	// TXREG is empty and nothing pending?
 	/* We'll only enable transmit interrupts if we have data pending for output */
-	if (PIR1bits.TXIF == 1 && PIE1bits.TXIE == 0) {
+	if (PIR1bits.TXIF && !PIE1bits.TXIE) {
 		// send the first byte immediately
 		TXREG = *outBytes++;
 		outBytesN--;
@@ -220,7 +220,7 @@ for (;;) {
 			// send output of leaf state
 			SendState();
 			
-			// restart in root state
+			// continue in root state
 			gState = &gTransitionsA;
 			}
 		}
@@ -272,7 +272,7 @@ if (INTCONbits.TMR0IF) {
 
 // waiting to send more bytes, and TXREG empty?
 /* We'll only enable transmit interrupts if we have data pending for output */
-if (PIE1bits.TXIE == 1 && PIR1bits.TXIF == 1)
+if (PIE1bits.TXIE && PIR1bits.TXIF)
 	;
 
 // UART receive?
