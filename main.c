@@ -2,11 +2,75 @@
 	main
 	
 	MIDI processor
+	Ben Hekster
 	
-	2024/01/05	Ben Hekster
+	2024/01/05	PICDEM FS USB demonstration board
+	2024/03/16	PIC18F2450 prototype
 */
 
+
+// PIC18F2450 Configuration Bit Settings
+
+// 'C' source line config statements
+
+// CONFIG1L
+#pragma config PLLDIV = 1       // PLL Prescaler Selection bits (No prescale (4 MHz oscillator input drives PLL directly))
+#pragma config CPUDIV = OSC1_PLL2// System Clock Postscaler Selection bits ([Primary Oscillator Src: /1][96 MHz PLL Src: /2])
+#pragma config USBDIV = 1       // USB Clock Selection bit (used in Full-Speed USB mode only; UCFG:FSEN = 1) (USB clock source comes directly from the primary oscillator block with no postscale)
+
+// CONFIG1H
+#pragma config FOSC = HS        // Oscillator Selection bits (HS oscillator (HS))
+#pragma config FCMEN = OFF      // Fail-Safe Clock Monitor Enable bit (Fail-Safe Clock Monitor disabled)
+#pragma config IESO = OFF       // Internal/External Oscillator Switchover bit (Oscillator Switchover mode disabled)
+
+// CONFIG2L
+#pragma config PWRT = OFF       // Power-up Timer Enable bit (PWRT disabled)
+#pragma config BOR = ON         // Brown-out Reset Enable bits (Brown-out Reset enabled in hardware only (SBOREN is disabled))
+#pragma config BORV = 21        // Brown-out Reset Voltage bits (2.1V)
+#pragma config VREGEN = OFF     // USB Voltage Regulator Enable bit (USB voltage regulator disabled)
+
+// CONFIG2H
+#pragma config WDT = OFF        // Watchdog Timer Enable bit (WDT disabled (control is placed on the SWDTEN bit))
+#pragma config WDTPS = 32768    // Watchdog Timer Postscale Select bits (1:32768)
+
+// CONFIG3H
+#pragma config PBADEN = OFF     // PORTB A/D Enable bit (PORTB<4:0> pins are configured as digital I/O on Reset)
+#pragma config LPT1OSC = OFF    // Low-Power Timer 1 Oscillator Enable bit (Timer1 configured for higher power operation)
+#pragma config MCLRE = ON       // MCLR Pin Enable bit (MCLR pin enabled; RE3 input pin disabled)
+
+// CONFIG4L
+#pragma config STVREN = ON      // Stack Full/Underflow Reset Enable bit (Stack full/underflow will cause Reset)
+#pragma config LVP = OFF        // Single-Supply ICSP Enable bit (Single-Supply ICSP disabled)
+#pragma config BBSIZ = BB1K     // Boot Block Size Select bit (1KW Boot block size)
+#pragma config XINST = OFF      // Extended Instruction Set Enable bit (Instruction set extension and Indexed Addressing mode disabled (Legacy mode))
+
+// CONFIG5L
+#pragma config CP0 = OFF        // Code Protection bit (Block 0 (000800-001FFFh) or (001000-001FFFh) is not code-protected)
+#pragma config CP1 = OFF        // Code Protection bit (Block 1 (002000-003FFFh) is not code-protected)
+
+// CONFIG5H
+#pragma config CPB = OFF        // Boot Block Code Protection bit (Boot block (000000-0007FFh) or (000000-000FFFh) is not code-protected)
+
+// CONFIG6L
+#pragma config WRT0 = OFF       // Write Protection bit (Block 0 (000800-001FFFh) or (001000-001FFFh) is not write-protected)
+#pragma config WRT1 = OFF       // Write Protection bit (Block 1 (002000-003FFFh) is not write-protected)
+
+// CONFIG6H
+#pragma config WRTC = OFF       // Configuration Register Write Protection bit (Configuration registers (300000-3000FFh) are not write-protected)
+#pragma config WRTB = OFF       // Boot Block Write Protection bit (Boot block (000000-0007FFh) or (000000-000FFFh) is not write-protected)
+
+// CONFIG7L
+#pragma config EBTR0 = OFF      // Table Read Protection bit (Block 0 (000800-001FFFh) or (001000-001FFFh) is not protected from table reads executed in other blocks)
+#pragma config EBTR1 = OFF      // Table Read Protection bit (Block 1 (002000-003FFFh) is not protected from table reads executed in other blocks)
+
+// CONFIG7H
+#pragma config EBTRB = OFF      // Boot Block Table Read Protection bit (Boot block (000000-0007FFh) or (000000-000FFFh) is not protected from table reads executed in other blocks)
+
+// #pragma config statements should precede project file includes.
+// Use project enums instead of #define for ON and OFF.
+
 #include <xc.h>
+
 
 
 /*	gTick
@@ -212,8 +276,8 @@ for (;;) {
 		gState = transition;
 		
 		// play/stop mode
-		if (gState == &gTransitionsG[0]) LATDbits.LATD3 = 1;
-		if (gState == &gTransitionsH[0]) LATDbits.LATD3 = 0;
+		if (gState == &gTransitionsG[0]) LATBbits.LATB1 = 1;
+		if (gState == &gTransitionsH[0]) LATBbits.LATB1 = 0;
 		
 		// matched through to a leaf state?
 		if (!gState->fTransitions) {
@@ -259,12 +323,15 @@ if (INTCONbits.TMR0IF) {
 	// tick
 	gTick++;
 	
+	LATBbits.LATB0 = gTick % 2;
+	
 	// clear receive indicator LED
-	LATDbits.LATD2 = 0;
+	//LATBbits.LATB1 = 0;
 	
 	// 3906 Hz timer clock = 15 * 256 + 66
-	TMR0H = 256 - 15;
-	TMR0L = 256 - 66;
+	// 7812 Hz timer clock = 30 * 256 + 132
+	TMR0H = 256 - 30;
+	TMR0L = 256 - 132;
 	
 	// clear timer interrupt flag
 	INTCONbits.TMR0IF = 0;
@@ -280,7 +347,7 @@ if (PIR1bits.RCIF) {
 	ReceiveOne(RCREG);
 	
 	// receive
-	LATDbits.LATD2 = 1;
+	//LATBbits.LATB1 = 1;
 	
 	// PIR1bits.RCIF cleared when RCREG is read
 	}
@@ -295,47 +362,39 @@ RCONbits.IPEN = 0;
 // disable global interrupts during setup
 INTCONbits.GIE = 0;
 
+// primary oscillator is already default
+
 // enable Idle (as opposed to Sleep) modes
 OSCCONbits.IDLEN = 1;
 
-// change Internal Oscillator Block frequency from 1 MHz to 4 MHz
-OSCCONbits.IRCF = 5;
+// configure all pins as digital
+ADCON1bits.PCFG = 0xF;
 
-// enable LED D3
-LATDbits.LATD2 = 0; // off
-TRISDbits.TRISD2 = 0; // output
-ANSELDbits.ANSD2 = 0; // digital
+// enable LED B0
+LATBbits.LATB0 = 0; // off
+TRISBbits.TRISB0 = 0; // output
 
-// enable LED D4
-LATDbits.LATD3 = 0; // off
-TRISDbits.TRISD3 = 0; // output
-ANSELDbits.ANSD3 = 0; // digital
+// enable LED B1
+LATBbits.LATB1 = 0; // off
+TRISBbits.TRISB1 = 0; // output
 
 // enable UART
 TXSTAbits.BRGH = 1; // high speed
 BAUDCONbits.BRG16 = 0; // 8-bit counter
 
-/* f_osc/(16(n + 1)) */ {
-	//SPBRG = 1; // = 1 MHz / (16*2) = 31.25 kHz
-	//SPBRG = 3; // 2 MHz / (16*4) = 31.25 kHz
-	SPBRG = 7; // 4 MHz / (16*8) = 31.25 kHz
-	}
+/* f_osc/(16(n + 1)) */
+SPBRG = 15; // 8 MHz / (16*16) = 31.25 kHz
 TXSTAbits.SYNC = 0; // asynchronous
 RCSTAbits.SPEN = 1;
 TRISCbits.TRISC7 = 1; // input
 TRISCbits.TRISC6 = 0; // output
-TXSTAbits.TX9 = 0; // 8-bit data words
 TXSTAbits.TXEN = 1; // enable transmitter
 PIE1bits.RCIE = 1; // enable receive interrupt
-RCSTAbits.RX9 = 0; // 8-bit data words
-RCSTAbits.CREN = 1; // enable receiver
-ANSELCbits.ANSC6 = 0;
-ANSELCbits.ANSC7 = 0;
-PIE1bits.TXIE = 0; // disable receive interrupt
+RCSTAbits.CREN = 1; // enable continuous receiver
+PIE1bits.TXIE = 0; // disable transmit interrupt
 
 // enable timer
-/* 1 MHz system clock; 250 kHz instruction clock; 250/256 kHz timer clock */
-/* 4 MHz system clock; 1000 kHz instruction clock; 1000 / 256 kHz timer clock */
+/* 8 MHz system clock; 2000 kHz instruction clock; 2000 / 256 kHz timer clock */
 T0CONbits.T08BIT = 0; // 16-bit timer
 T0CONbits.T0CS = 0; // timer mode
 T0CONbits.T0PS = 7; // 1:256
